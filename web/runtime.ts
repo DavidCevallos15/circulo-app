@@ -1,4 +1,4 @@
-/** Configuración del entorno de ejecución (app local vs. analizador web estático en GitHub Pages). */
+/** Configuración del entorno de ejecución (app local vs. analizador web estático en davidcevallos.me/circulo/app/). */
 
 export const APP_VERSION = typeof __APP_VERSION__ === 'string' && __APP_VERSION__ ? __APP_VERSION__ : '0.4.0';
 

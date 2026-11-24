@@ -1,0 +1,38 @@
+name: CI · Analizador web
+
+# El analizador web se publica en https://www.davidcevallos.me/circulo/app/ (Vercel, repo personal_web).
+# Este workflow valida parser, reportes y compilación en cada push o PR.
+on:
+  push:
+    branches: ['main']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install web dependencies
+        run: npm ci
+
+      - name: Run parser and report tests
+        run: npm test
+
+      - name: Build static web analyzer
+        run: npm run build
+
+      - name: Ensure CSP-safe build (no data URIs)
+        run: |
+          if grep -R "data:font" dist/; then echo "Inline font found; check assetsInlineLimit" && exit 1; fi

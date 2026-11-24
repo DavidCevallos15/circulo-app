@@ -6,9 +6,10 @@ Estado: **integrado** (23-nov-2026). Esta carpeta es la copia fuente de lo publi
 |---|---|---|
 | `/circulo/` | `public/circulo/index.html` | Landing: descarga gratis, analizador web, reserva Pro ($9) y auditoría ($25+) con Web3Forms |
 | `/circulo/descargar/` | `public/circulo/descargar/index.html` | Descarga del ZIP, huella SHA-256, requisitos, instalación, recomendaciones de uso seguro y FAQ |
+| `/circulo/app/` | `npm run build` → `dist/` | Analizador web 100% en navegador (modo público automático por dominio) |
 | `/circulo/update.json` | `public/circulo/update.json` | Manifiesto opcional para el comprobador de actualizaciones (`CIRCULO_UPDATE_URL`) |
 
-Todo cumple el `Content-Security-Policy` de `frontend/vercel.json`: cero scripts inline (`landing.js` externo), formulario a `api.web3forms.com` (en `connect-src`) y GTM desde `googletagmanager.com`.
+Todo cumple el `Content-Security-Policy` de `frontend/vercel.json`: cero scripts inline (`landing.js` externo), formulario a `api.web3forms.com` (en `connect-src`), GTM desde `googletagmanager.com` y el analizador compilado sin `data:` URIs (`assetsInlineLimit: 0`).
 
 ## Publicar una nueva versión
 
@@ -16,7 +17,9 @@ Todo cumple el `Content-Security-Policy` de `frontend/vercel.json`: cero scripts
 2. `powershell -ExecutionPolicy Bypass -File packaging\build_windows.ps1 -RebuildWeb`
 3. `gh release create vX.Y.Z release\Circulo-X.Y.Z-win64.zip release\SHA256SUMS.txt --title "Círculo X.Y.Z" --notes "..."`
 4. En `public/circulo/descargar/index.html` y `update.json` actualiza versión, URL del ZIP, tamaño, fecha y SHA-256 (de `release/SHA256SUMS.txt`).
-5. Copia esta carpeta a `personal_web/frontend/public/circulo/` y haz push.
+5. Copia esta carpeta a `personal_web/frontend/public/circulo/` y el contenido de `dist/` a `personal_web/frontend/public/circulo/app/` (borra antes los assets viejos), y haz push.
+
+> No uses GitHub Pages para este repo: el sitio de usuario `DavidCevallos15.github.io` tiene `davidcevallos.me` como dominio propio, así que cualquier Pages de proyecto redirige a `davidcevallos.me/circulo-app/`, que Vercel no sirve.
 
 ## Eventos GA4 / GTM (`GTM-TP42PVRG`)
 

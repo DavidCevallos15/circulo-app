@@ -4,7 +4,7 @@ Auditoría privada de audiencia para Instagram, TikTok y Facebook: compara tus l
 
 | Versión | Dónde | Qué hace |
 |---|---|---|
-| **Analizador web (gratis)** | [davidcevallos15.github.io/circulo-app](https://davidcevallos15.github.io/circulo-app/) | Procesa ZIP/JSON/TXT/CSV 100% en el navegador, reportes CSV/HTML, escudo de protección, exporta `targets.json`. No ejecuta acciones. |
+| **Analizador web (gratis)** | [davidcevallos.me/circulo/app](https://www.davidcevallos.me/circulo/app/) | Procesa ZIP/JSON/TXT/CSV 100% en el navegador, reportes CSV/HTML, escudo de protección, exporta `targets.json`. No ejecuta acciones. |
 | **App de escritorio Windows (gratis)** | [davidcevallos.me/circulo/descargar](https://www.davidcevallos.me/circulo/descargar/) · [Releases](https://github.com/DavidCevallos15/circulo-app/releases/latest) | Todo lo anterior + ejecutor local con simulación, comprobación, ejecución real, límites diarios, pausa y programación multi-red. |
 | **Círculo Pro (reserva $9 USD)** | [davidcevallos.me/circulo](https://www.davidcevallos.me/circulo/#reservar) | Soporte directo, actualizaciones prioritarias y próximas funciones. |
 

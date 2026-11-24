@@ -24,7 +24,7 @@ User confirmed Windows and the default criterion: only accounts that do not foll
 
 ## Capabilities and Constraints
 
-Start with Instagram. Keep modular adapters for TikTok and Facebook. Import, preview, selection, exclusions, targets.json export, persistent queue, dry run, daily limits, pause and stop on challenge. Instagram and TikTok adapters validated in a real authenticated session; Facebook remains beta. Distribution: free public web analyzer (GitHub Pages), free Windows portable build (GitHub Releases, linked from davidcevallos.me/circulo/descargar/), and Círculo Pro reservation ($9 USD) for support and upcoming features.
+Start with Instagram. Keep modular adapters for TikTok and Facebook. Import, preview, selection, exclusions, targets.json export, persistent queue, dry run, daily limits, pause and stop on challenge. Instagram and TikTok adapters validated in a real authenticated session; Facebook remains beta. Distribution: free public web analyzer (davidcevallos.me/circulo/app/, served by Vercel from personal_web), free Windows portable build (GitHub Releases, linked from davidcevallos.me/circulo/descargar/), and Círculo Pro reservation ($9 USD) for support and upcoming features.
 
 ## Evidence on Hand
 
