@@ -153,6 +153,26 @@ try:
         page.get_by_role('button', name='Ejecutar lote ahora', exact=False).click()
         page.get_by_text('Simulación multi-red terminada', exact=False).wait_for(timeout=20000)
         check('multi-network batch simulation completed across networks', page.get_by_text('Simulación multi-red terminada (2 redes', exact=False).is_visible())
+        # Comprueba el modo Analizador Web público (?mode=web): sin errores de ejecutor local, sin llamadas /api y responsive limpio.
+        web_page = browser.new_page(viewport={'width': 1440, 'height': 1000}, device_scale_factor=1)
+        web_errors = []
+        web_api_calls = []
+        web_page.on('pageerror', lambda err: web_errors.append(str(err)))
+        web_page.on('request', lambda req: web_api_calls.append(req.url) if '/api/' in req.url else None)
+        web_page.goto(url + '/?mode=web')
+        web_page.get_by_text('Analizador web privado', exact=True).wait_for()
+        check('public web mode hides offline local runner error', web_page.get_by_text('El ejecutor local no está disponible').count() == 0)
+        check('public web mode shows Pro reservation CTA', web_page.get_by_role('link', name='Reservar Círculo Pro · $9 USD').is_visible())
+        download_cta = web_page.get_by_role('link', name='Descargar gratis para Windows')
+        check('public web mode shows free Windows download CTA', download_cta.is_visible() and download_cta.get_attribute('href') == 'https://www.davidcevallos.me/circulo/descargar/')
+        check('public web mode makes zero /api requests', web_api_calls == [])
+        web_page.get_by_role('button', name='Explorar con datos de ejemplo').click()
+        check('public web mode analyzes demo accounts locally', web_page.locator('tbody tr').count() == 8)
+        for vp in [{'width': 1440, 'height': 900}, {'width': 768, 'height': 900}, {'width': 390, 'height': 844}, {'width': 320, 'height': 640}]:
+            web_page.set_viewport_size(vp)
+            check(f'public web mode has no overflow at {vp["width"]}px', web_page.evaluate('document.documentElement.scrollWidth <= window.innerWidth'))
+        check('public web mode has zero JS errors', web_errors == [])
+        web_page.close()
         check('no browser JavaScript errors', errors == [])
         # Exercise adapters against controlled HTML, with every platform URL intercepted.
         fixture = browser.new_page()

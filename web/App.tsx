@@ -22,6 +22,7 @@ import {
   LockKeyhole,
   Music2,
   Play,
+  RefreshCw,
   RotateCcw,
   Search,
   Settings2,
@@ -44,6 +45,8 @@ import {
 import { buildCsvReport, buildHtmlReport, buildReportSummary, getFanPeople } from './reports';
 import { PLATFORM_GUIDES } from './guides';
 import { extractExportEntries } from './zip';
+import { APP_VERSION, PUBLIC_LINKS, detectPublicWebMode } from './runtime';
+import WebUpgradePanel from './WebUpgradePanel';
 import ScheduleView, {
   type ActionType,
   type RunMode,
@@ -61,8 +64,23 @@ import {
   saveSessionLists,
 } from './storage';
 
+type UpdateInfo = {
+  checkedAt: string | null;
+  currentVersion: string;
+  latestVersion: string | null;
+  updateAvailable: boolean;
+  releaseUrl: string | null;
+  downloadUrl: string | null;
+  sha256: string | null;
+  notes: string;
+  publishedAt: string | null;
+  source: string | null;
+  error: string | null;
+};
+
 type RunnerState = {
   token: string;
+  version?: string;
   phase: string;
   mode: string | null;
   platform: Platform | null;
@@ -77,6 +95,7 @@ type RunnerState = {
   batchTotal?: number;
   batchSource?: string;
   scheduler?: SchedulerSnapshot;
+  update?: UpdateInfo | null;
   events: { id: number; at: string; level: string; message: string }[];
   counts: Record<string, number>;
 };
@@ -125,6 +144,7 @@ function download(name: string, body: string, type = 'application/json;charset=u
 }
 
 export default function App() {
+  const webMode = useMemo(() => detectPublicWebMode(), []);
   const [platform, setPlatform] = useState<Platform>('instagram');
   const [tab, setTab] = useState<Tab>('connections');
   const [listsByPlatform, setListsByPlatform] = useState<Record<Platform, Lists>>(createInitialListsByPlatform);
@@ -156,6 +176,9 @@ export default function App() {
   const [queue, setQueue] = useState<QueueRow[]>([]);
   const [online, setOnline] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
+  const [dismissedUpdateVersion, setDismissedUpdateVersion] = useState<string | null>(null);
   const [confirmation, setConfirmation] = useState<PendingConfirmation | null>(null);
   const [confirmedText, setConfirmedText] = useState('');
   const [resumeConfirmed, setResumeConfirmed] = useState(false);
@@ -171,9 +194,11 @@ export default function App() {
   const protectedUsers = protectedByPlatform[platform];
   const account = accountsByPlatform[platform];
   const busyRunner = runner?.phase === 'running' || runner?.sessionOpen || busy;
+  const displayVersion = runner?.version || APP_VERSION;
 
-  // Sincronización periódica del ejecutor local y la cola SQLite.
+  // Sincronización periódica del ejecutor local y la cola SQLite (se omite en modo analizador web estático).
   useEffect(() => {
+    if (webMode) return;
     let active = true;
     async function poll() {
       try {
@@ -184,6 +209,7 @@ export default function App() {
         if (active) {
           token.current = state.token;
           setRunner(state);
+          if (state.update) setUpdateInfo(state.update);
           setQueue(rows);
           setOnline(true);
         }
@@ -197,10 +223,11 @@ export default function App() {
       active = false;
       window.clearInterval(timer);
     };
-  }, []);
+  }, [webMode]);
 
   // Comprueba si ya existe un perfil de Chromium guardado para esta red y cuenta.
   useEffect(() => {
+    if (webMode) return;
     let active = true;
     setConfirmDeleteSession(false);
     const trimmed = account.trim().replace(/^@/, '');
@@ -223,7 +250,7 @@ export default function App() {
     return () => {
       active = false;
     };
-  }, [online, platform, account, runner?.sessionOpen]);
+  }, [webMode, online, platform, account, runner?.sessionOpen]);
 
   useEffect(() => {
     saveAccount(platform, account);
@@ -657,6 +684,48 @@ export default function App() {
     await begin(reuseQueue);
   }
 
+  function exportSelectedTargetsJson() {
+    if (!selectedPeople.length) return;
+    download(
+      'targets.json',
+      JSON.stringify(
+        {
+          version: 1,
+          platform,
+          action: currentAction,
+          generatedAt: new Date().toISOString(),
+          demo,
+          targets: selectedTargets,
+        },
+        null,
+        2,
+      ),
+    );
+  }
+
+  async function checkForUpdates() {
+    if (webMode || !online || checkingUpdate) return;
+    setCheckingUpdate(true);
+    try {
+      const payload = (await api('update/check', { force: true })) as { update?: UpdateInfo };
+      if (payload.update) {
+        setUpdateInfo(payload.update);
+        setDismissedUpdateVersion(null);
+        if (payload.update.error) {
+          notify(`No se pudo comprobar actualizaciones: ${payload.update.error}`, true);
+        } else if (payload.update.updateAvailable && payload.update.latestVersion) {
+          notify(`Hay una nueva versión disponible: Círculo v${payload.update.latestVersion}.`);
+        } else {
+          notify(`Círculo v${payload.update.currentVersion} está al día.`);
+        }
+      }
+    } catch (err) {
+      notify(err instanceof Error ? err.message : 'No se pudo comprobar actualizaciones.', true);
+    } finally {
+      setCheckingUpdate(false);
+    }
+  }
+
   async function begin(reuseQueue = false) {
     await act(async () => {
       if (!reuseQueue) await api('queue', { platform, account, targets: selectedTargets, demo, action: currentAction });
@@ -676,11 +745,15 @@ export default function App() {
   return (
     <div className="app-shell">
       <aside className="sidebar" inert={Boolean(confirmation)}>
-        <a className="brand" href="/" aria-label="Círculo, inicio">
+        <a
+          className="brand"
+          href={webMode ? PUBLIC_LINKS.landingUrl : '/'}
+          aria-label="Círculo, inicio"
+        >
           <span className="brand-mark">
             <span />
           </span>
-          Círculo<span className="version">local</span>
+          Círculo<span className="version">{webMode ? 'web' : 'local'}</span>
         </a>
         <nav aria-label="Navegación principal">
           <button
@@ -692,24 +765,28 @@ export default function App() {
             Conexiones
             <span className="nav-count">{followingPeople.length ? fmt(followingPeople.length) : '—'}</span>
           </button>
-          <button
-            className={tab === 'schedule' ? 'nav-item active' : 'nav-item'}
-            aria-current={tab === 'schedule' ? 'page' : undefined}
-            onClick={() => setTab('schedule')}
-          >
-            <CalendarClock size={19} />
-            Programación
-            {scheduleArmed && <i className="activity-dot" aria-label="Activa" />}
-          </button>
-          <button
-            className={tab === 'activity' ? 'nav-item active' : 'nav-item'}
-            aria-current={tab === 'activity' ? 'page' : undefined}
-            onClick={() => setTab('activity')}
-          >
-            <History size={19} />
-            Actividad
-            {runner?.phase === 'running' && <i className="activity-dot" />}
-          </button>
+          {!webMode && (
+            <>
+              <button
+                className={tab === 'schedule' ? 'nav-item active' : 'nav-item'}
+                aria-current={tab === 'schedule' ? 'page' : undefined}
+                onClick={() => setTab('schedule')}
+              >
+                <CalendarClock size={19} />
+                Programación
+                {scheduleArmed && <i className="activity-dot" aria-label="Activa" />}
+              </button>
+              <button
+                className={tab === 'activity' ? 'nav-item active' : 'nav-item'}
+                aria-current={tab === 'activity' ? 'page' : undefined}
+                onClick={() => setTab('activity')}
+              >
+                <History size={19} />
+                Actividad
+                {runner?.phase === 'running' && <i className="activity-dot" />}
+              </button>
+            </>
+          )}
           <button
             className={tab === 'guide' ? 'nav-item active' : 'nav-item'}
             aria-current={tab === 'guide' ? 'page' : undefined}
@@ -722,21 +799,44 @@ export default function App() {
         <div className="local-note sidebar-bottom">
           <ShieldCheck size={17} />
           <span>
-            Tus datos se quedan aquí.
-            <small>100% local · sin contraseñas.</small>
+            {webMode ? 'Tus archivos no salen de aquí.' : 'Tus datos se quedan aquí.'}
+            <small>{webMode ? '100% en tu navegador · sin servidor.' : '100% local · sin contraseñas.'}</small>
           </span>
         </div>
         <div className="sidebar-footer">
-          <span className={`connection-dot ${online ? 'connected' : ''}`} />
-          {online ? 'Ejecutor local conectado' : 'Ejecutor desconectado'}
-          <span>v0.4</span>
+          <span className={`connection-dot ${webMode || online ? 'connected' : ''}`} />
+          <span>
+            {webMode ? 'Analizador web privado' : online ? 'Ejecutor local conectado' : 'Ejecutor desconectado'}
+          </span>
+          {!webMode && online ? (
+            <button
+              type="button"
+              className="version-update-button"
+              onClick={() => void checkForUpdates()}
+              disabled={checkingUpdate}
+              title="Buscar actualizaciones oficiales"
+              aria-label="Buscar actualizaciones"
+            >
+              <RefreshCw size={11} className={checkingUpdate ? 'spin' : ''} />
+              <span>v{displayVersion}</span>
+            </button>
+          ) : (
+            <span>v{displayVersion}</span>
+          )}
         </div>
       </aside>
 
       <div className="main-shell" inert={Boolean(confirmation)}>
         <header className="topbar">
           <div className="breadcrumb">
-            Mi espacio<span>/</span>
+            {webMode ? (
+              <a className="topbar-landing-link" href={PUBLIC_LINKS.landingUrl}>
+                Círculo
+              </a>
+            ) : (
+              'Mi espacio'
+            )}
+            <span>/</span>
             <strong>
               {tab === 'connections'
                 ? 'Conexiones'
@@ -748,7 +848,7 @@ export default function App() {
             </strong>
           </div>
           <span className="private-label">
-            <LockKeyhole size={14} /> Espacio local privado
+            <LockKeyhole size={14} /> {webMode ? 'Análisis privado en tu navegador' : 'Espacio local privado'}
           </span>
         </header>
 
@@ -795,7 +895,32 @@ export default function App() {
             </div>
           )}
 
-          {!online && (
+          {!webMode &&
+            updateInfo?.updateAvailable &&
+            updateInfo.latestVersion &&
+            dismissedUpdateVersion !== updateInfo.latestVersion && (
+              <div className="notice update-notice" role="status">
+                <CircleCheck size={18} />
+                <span>
+                  Nueva versión disponible: <strong>Círculo v{updateInfo.latestVersion}</strong> (tienes v
+                  {updateInfo.currentVersion}).{' '}
+                  {updateInfo.notes ? `${updateInfo.notes.slice(0, 140)} ` : ''}
+                  {updateInfo.releaseUrl && (
+                    <a href={updateInfo.releaseUrl} target="_blank" rel="noopener noreferrer">
+                      Ver actualización oficial
+                    </a>
+                  )}
+                </span>
+                <button
+                  aria-label="Ocultar aviso de actualización"
+                  onClick={() => setDismissedUpdateVersion(updateInfo.latestVersion)}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            )}
+
+          {!webMode && !online && (
             <div className="notice error" role="status">
               <CircleAlert size={18} />
               <span>
@@ -1193,27 +1318,20 @@ export default function App() {
                     >
                       Deseleccionar
                     </button>
-                    <button
-                      className="button small secondary"
-                      disabled={!selectedPeople.length || !online || !!busyRunner}
-                      onClick={() => void saveSelectedToQueue()}
-                    >
-                      <ListPlus size={15} />
-                      Guardar en cola
-                    </button>
+                    {!webMode && (
+                      <button
+                        className="button small secondary"
+                        disabled={!selectedPeople.length || !online || !!busyRunner}
+                        onClick={() => void saveSelectedToQueue()}
+                      >
+                        <ListPlus size={15} />
+                        Guardar en cola
+                      </button>
+                    )}
                     <button
                       className="button small secondary"
                       disabled={!selectedPeople.length}
-                      onClick={() =>
-                        download(
-                          'targets.json',
-                          JSON.stringify(
-                            { version: 1, platform, action: currentAction, generatedAt: new Date().toISOString(), demo, targets: selectedTargets },
-                            null,
-                            2,
-                          ),
-                        )
-                      }
+                      onClick={exportSelectedTargetsJson}
                     >
                       <ArrowDownToLine size={15} />
                       Exportar JSON
@@ -1386,6 +1504,10 @@ export default function App() {
                   <p>
                     Antes de ejecutar un lote real, Círculo comprueba automáticamente que el usuario autenticado en el navegador coincide con el que escribiste. Tus cookies viven únicamente en <code>data/profiles/</code> y puedes borrarlas en cualquier momento con el botón <strong>Borrar sesión</strong>. Evita colocar la carpeta de la app dentro de OneDrive o Dropbox.
                   </p>
+                  <h2>Transparencia e independencia</h2>
+                  <p>
+                    Círculo es software local e independiente, no afiliado ni respaldado por Meta (Instagram, Facebook) ni por TikTok. En el modo web tus archivos nunca salen de tu navegador; en el modo escritorio tú controlas tu sesión, límites y pausas.
+                  </p>
                   <button className="button secondary" onClick={() => setTab('connections')}>
                     Ir a importar mis archivos
                     <ArrowRight size={15} />
@@ -1394,6 +1516,13 @@ export default function App() {
               )}
             </section>
 
+            {webMode ? (
+              <WebUpgradePanel
+                selectedCount={selectedPeople.length}
+                platformName={platformNames[platform]}
+                onExportSelected={exportSelectedTargetsJson}
+              />
+            ) : (
             <aside className="runner-panel" aria-label="Panel de ejecución">
               <div className="runner-title">
                 <span className="runner-symbol">
@@ -1663,12 +1792,17 @@ export default function App() {
                 </div>
               )}
             </aside>
+            )}
           </div>
         </main>
       </div>
 
       {/* Navegación inferior ergonómica exclusiva para pantallas móviles (zona del pulgar + safe-area) */}
-      <nav className="mobile-bottom-nav" aria-label="Navegación móvil" inert={Boolean(confirmation)}>
+      <nav
+        className={`mobile-bottom-nav ${webMode ? 'web-mode' : ''}`}
+        aria-label="Navegación móvil"
+        inert={Boolean(confirmation)}
+      >
         <button
           className={tab === 'connections' ? 'mobile-nav-item active' : 'mobile-nav-item'}
           aria-current={tab === 'connections' ? 'page' : undefined}
@@ -1677,24 +1811,28 @@ export default function App() {
           <Users size={20} />
           <span>Conexiones</span>
         </button>
-        <button
-          className={tab === 'schedule' ? 'mobile-nav-item active' : 'mobile-nav-item'}
-          aria-current={tab === 'schedule' ? 'page' : undefined}
-          onClick={() => setTab('schedule')}
-        >
-          <CalendarClock size={20} />
-          <span>Programar</span>
-          {scheduleArmed && <i className="mobile-dot" />}
-        </button>
-        <button
-          className={tab === 'activity' ? 'mobile-nav-item active' : 'mobile-nav-item'}
-          aria-current={tab === 'activity' ? 'page' : undefined}
-          onClick={() => setTab('activity')}
-        >
-          <History size={20} />
-          <span>Actividad</span>
-          {runner?.phase === 'running' && <i className="mobile-dot" />}
-        </button>
+        {!webMode && (
+          <>
+            <button
+              className={tab === 'schedule' ? 'mobile-nav-item active' : 'mobile-nav-item'}
+              aria-current={tab === 'schedule' ? 'page' : undefined}
+              onClick={() => setTab('schedule')}
+            >
+              <CalendarClock size={20} />
+              <span>Programar</span>
+              {scheduleArmed && <i className="mobile-dot" />}
+            </button>
+            <button
+              className={tab === 'activity' ? 'mobile-nav-item active' : 'mobile-nav-item'}
+              aria-current={tab === 'activity' ? 'page' : undefined}
+              onClick={() => setTab('activity')}
+            >
+              <History size={20} />
+              <span>Actividad</span>
+              {runner?.phase === 'running' && <i className="mobile-dot" />}
+            </button>
+          </>
+        )}
         <button
           className={tab === 'guide' ? 'mobile-nav-item active' : 'mobile-nav-item'}
           aria-current={tab === 'guide' ? 'page' : undefined}

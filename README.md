@@ -1,15 +1,30 @@
 # Círculo
 
-Una app local en español para comparar listas de seguidos y seguidores y preparar una cola de unfollows. Primera versión funcional, empezando por Instagram. React + TypeScript, Python + Playwright y SQLite.
+Auditoría privada de audiencia para Instagram, TikTok y Facebook: compara tus listas oficiales de seguidos y seguidores, genera reportes y, si quieres, prepara y ejecuta una cola revisada de unfollows desde **tu propio navegador**, en **tu computadora**. Sin contraseñas, sin servidores de terceros. React + TypeScript, Python + Playwright y SQLite.
 
-## Abrir en Windows
+| Versión | Dónde | Qué hace |
+|---|---|---|
+| **Analizador web (gratis)** | [davidcevallos15.github.io/circulo-app](https://davidcevallos15.github.io/circulo-app/) | Procesa ZIP/JSON/TXT/CSV 100% en el navegador, reportes CSV/HTML, escudo de protección, exporta `targets.json`. No ejecuta acciones. |
+| **App de escritorio Windows (gratis)** | [davidcevallos.me/circulo/descargar](https://www.davidcevallos.me/circulo/descargar/) · [Releases](https://github.com/DavidCevallos15/circulo-app/releases/latest) | Todo lo anterior + ejecutor local con simulación, comprobación, ejecución real, límites diarios, pausa y programación multi-red. |
+| **Círculo Pro (reserva $9 USD)** | [davidcevallos.me/circulo](https://www.davidcevallos.me/circulo/#reservar) | Soporte directo, actualizaciones prioritarias y próximas funciones. |
 
-1. Instala **Python 3.10 o posterior** si aún no lo tienes.
-2. Descomprime la carpeta completa y abre **iniciar.cmd**.
-3. La primera vez instala Playwright y Chromium; necesita internet. Luego abre **http://127.0.0.1:8765**.
-4. Mantén abierta la ventana del ejecutor. Para salir, usa Ctrl+C.
+## Descargar e iniciar en Windows (recomendado)
 
-El paquete ZIP incluye `dist`, la web compilada. Node.js solo hace falta para modificar o reconstruir la interfaz. La primera instalación descarga un navegador, por lo que puede tardar varios minutos.
+1. Descarga `Circulo-<versión>-win64.zip` desde la [página de descarga](https://www.davidcevallos.me/circulo/descargar/) o desde [Releases](https://github.com/DavidCevallos15/circulo-app/releases/latest).
+2. (Recomendado) Verifica la huella: `Get-FileHash .\Circulo-<versión>-win64.zip -Algorithm SHA256` y compárala con `SHA256SUMS.txt` del release.
+3. Descomprime **toda** la carpeta (no la ejecutes desde dentro del ZIP) en una ruta fuera de OneDrive/Dropbox, por ejemplo `C:\Apps\Circulo`.
+4. Abre `Circulo\Circulo.exe`. El binario aún no está firmado: si SmartScreen avisa, pulsa **Más información → Ejecutar de todas formas**.
+5. Se abre `http://127.0.0.1:8765`. Mantén abierta la ventana de consola mientras uses la app; para salir, ciérrala o usa Ctrl+C.
+
+No necesitas Python, Node ni descargar Chromium: vienen incluidos. Tus datos (cola, historial y sesiones) se guardan en `%LOCALAPPDATA%\Circulo\data`.
+
+### Desde el código fuente
+
+1. Instala **Python 3.10 o posterior**.
+2. Clona o descarga el repositorio y abre **iniciar.cmd** (en Linux: `bash start.sh`).
+3. La primera vez instala Playwright y Chromium (necesita internet). Luego abre **http://127.0.0.1:8765**.
+
+`dist/` se genera con `npm run build`; Node.js solo hace falta para modificar o reconstruir la interfaz.
 
 ## Flujo
 
@@ -50,7 +65,7 @@ El script genera `release/Circulo-<versión>-win64.zip` y `release/SHA256SUMS.tx
 - Los usuarios protegidos y el identificador de cuenta se guardan en `localStorage` por red.
 - `data/queue.sqlite3`: cola por red y cuenta, historial y registro. `data/profiles/`: cookies y almacenamiento de Chromium; contiene tu sesión privada. No compartas esta carpeta.
 - El límite diario cuenta **intentos iniciados**, también resultados dudosos, por día **UTC**, red y perfil local. No es un límite oficial de las plataformas ni garantiza evitar bloqueos.
-- El identificador que escribes es la etiqueta del perfil local. **Comprueba tú que la sesión abierta corresponde a esa cuenta**; la app no verifica automáticamente el dueño de la sesión.
+- El identificador que escribes es la etiqueta del perfil local. En Instagram y TikTok la app verifica la cuenta autenticada antes de ejecutar y se detiene si no coincide; en Facebook (beta) **comprueba tú que la sesión abierta corresponde a esa cuenta**.
 - Antes del primer clic se reserva un intento en SQLite. Si se interrumpe el proceso después, queda “Revisar manualmente” y no se vuelve a ejecutar automáticamente. Reimportar una cuenta completada o dudosa conserva su estado.
 - Un captcha, página de login, aviso de límite, redirección inesperada o resultado ambiguo detiene toda la ejecución. No se resuelven captchas ni se eluden verificaciones.
 - El servidor escucha solo en `127.0.0.1`; valida Host, Origin y un token por proceso en las mutaciones. No habilita CORS. Usa la dirección local directa, no un proxy público.
@@ -71,6 +86,10 @@ python -m runner.server --no-open
 Para un puerto distinto: `python -m runner.server --port 8766`. En Linux: `bash start.sh`; algunas distribuciones requieren dependencias de sistema de Chromium. Playwright no ofrece el mismo soporte para todas las distribuciones.
 
 El servidor y la CLI no pueden usar simultáneamente la misma carpeta de datos; el segundo proceso muestra un error antes de abrir el navegador. Si usas la CLI, cierra primero la app. Los detalles de las verificaciones están en `VALIDACION.md`.
+
+## Uso responsable
+
+Círculo es una herramienta independiente, sin relación con Meta ni ByteDance. Automatizar acciones puede ir contra los términos de cada plataforma; úsala con tu propia cuenta, con límites conservadores y bajo tu responsabilidad.
 
 Puedes usar Vite (`npm run dev`) para trabajar en la interfaz. El ejecutor rechaza mutaciones desde ese origen: **para probar el flujo completo usa la compilación servida por Python en el puerto 8765**. Esto mantiene una única política de origen local.
 

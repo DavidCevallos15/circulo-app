@@ -13,17 +13,19 @@ from .instance import InstanceLock
 from .paths import cloud_sync_provider, default_data_dir, static_dir
 from .scheduler import Scheduler
 from .store import Store
+from .updater import UpdateChecker
 
 STATIC_ROOT = static_dir()
 
 
-def make_server(port=8765, data=None, os_task_runner=None):
+def make_server(port=8765, data=None, os_task_runner=None, update_checker=None):
     directory = Path(data) if data else default_data_dir()
     instance_lock = InstanceLock(directory).acquire()
     store = Store(directory)
     engine = Engine(store)
     scheduler = Scheduler(store, engine, os_task_runner=os_task_runner)
     scheduler.start()
+    updater = update_checker or UpdateChecker()
     token = secrets.token_urlsafe(32)
     sync_provider = cloud_sync_provider(directory)
 
@@ -52,9 +54,13 @@ def make_server(port=8765, data=None, os_task_runner=None):
                 return self.reply(200, {
                     **engine.snapshot(),
                     'token': token,
+                    'version': updater.current_version,
                     'syncProvider': sync_provider,
                     'scheduler': scheduler.snapshot(),
+                    'update': updater.snapshot(),
                 })
+            if path == '/api/update':
+                return self.reply(200, {'version': updater.current_version, 'update': updater.snapshot()})
             if path == '/api/schedule':
                 return self.reply(200, scheduler.snapshot(refresh_os_task=True))
             if path == '/api/queue':
@@ -126,6 +132,12 @@ def make_server(port=8765, data=None, os_task_runner=None):
                 elif path == '/api/schedule/clear-halt':
                     cleared = scheduler.clear_halt(payload.get('platform'), payload.get('account'))
                     return self.reply(200, {'ok': True, 'cleared': cleared, 'scheduler': scheduler.snapshot()})
+                elif path == '/api/update/check':
+                    force = bool(payload.get('force', True))
+                    info = updater.check(force=force)
+                    if info.get('updateAvailable') and info.get('latestVersion'):
+                        store.log(f"Actualización disponible: Círculo v{info['latestVersion']} (instalada v{info['currentVersion']}).")
+                    return self.reply(200, {'ok': True, 'update': info})
                 else:
                     return self.reply(404, {'error': 'Ruta no encontrada.'})
                 self.reply(200, {'ok': True})
@@ -152,6 +164,7 @@ def make_server(port=8765, data=None, os_task_runner=None):
         raise
     server.engine = engine
     server.scheduler = scheduler
+    server.updater = updater
     return server
 
 

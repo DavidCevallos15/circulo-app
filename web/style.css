@@ -259,8 +259,116 @@ code {
   white-space: nowrap;
 }
 
-.sidebar-footer > span:last-child {
+.sidebar-footer > span:last-child,
+.sidebar-footer > .version-update-button {
   margin-left: auto;
+}
+
+.version-update-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 7px;
+  border-radius: 5px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #dae6d5;
+  background: #304937;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+.topbar-landing-link {
+  color: var(--muted);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.update-notice a {
+  font-weight: 700;
+  color: var(--green);
+}
+
+/* Panel lateral del modo Analizador Web público */
+.web-upgrade-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.web-panel-lead {
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: #4b5a46;
+}
+
+.web-panel-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 11px;
+  border-radius: 7px;
+  background: #eef2e7;
+  border: 1px solid #d5e0ca;
+  color: #36522e;
+  font-size: 11.5px;
+  font-weight: 650;
+}
+
+.web-feature-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.web-feature-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: #465740;
+}
+
+.web-feature-list svg {
+  color: var(--green);
+  margin-top: 3px;
+}
+
+.web-selection-callout {
+  background: #edf3e4;
+  border: 1px solid #c9d9b7;
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.web-selection-callout p {
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: #334a2c;
+}
+
+.web-cta-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.web-cta-secondary {
+  width: 100%;
+  min-height: 40px;
+}
+
+.web-panel-footnote {
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--muted);
 }
 
 .connection-dot {
@@ -2206,6 +2314,8 @@ progress::-webkit-progress-value {
   .queue-chip:hover:not(.active) { background: #eef2e7; }
   .schedule-kind-option:hover:not(.active):not(:disabled) { background: #f3f6ee; }
   .weekday-pill:hover:not(.active):not(:disabled) { background: #eef2e7; }
+  .version-update-button:hover:not(:disabled) { background: #3d5b44; color: #f4f7ed; }
+  .topbar-landing-link:hover { color: var(--ink); text-decoration: underline; }
   .nav-item:hover:not(.active) { background: #304937; }
   .button.secondary:hover:not(:disabled) { background: #f0f4e8; }
   .button.primary:hover:not(:disabled) { background: var(--green-hover); }
@@ -2286,6 +2396,10 @@ progress::-webkit-progress-value {
     column-gap: 22px;
     padding: 22px;
   }
+  .runner-panel.web-upgrade-panel {
+    display: flex;
+    flex-direction: column;
+  }
   .runner-title,
   .session-pill,
   .inline-confirm,
@@ -2360,7 +2474,8 @@ progress::-webkit-progress-value {
     border: 0;
     font-size: 11px;
   }
-  .sidebar-footer > span:last-child {
+  .sidebar-footer > span:last-child,
+  .sidebar-footer > .version-update-button {
     display: none;
   }
   .main-shell {
@@ -2505,6 +2620,9 @@ progress::-webkit-progress-value {
     background: var(--rail);
     border-top: 1px solid #3a523e;
     padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+  }
+  .mobile-bottom-nav.web-mode {
+    grid-template-columns: repeat(2, 1fr);
   }
   .mobile-nav-item {
     position: relative;

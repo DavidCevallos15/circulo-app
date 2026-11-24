@@ -18,6 +18,14 @@ from runner.paths import cloud_sync_provider
 from runner.scheduler import GRACE_WINDOW_SECONDS, Scheduler, compute_next_run
 from runner.server import make_server
 from runner.store import Store, validate_target
+from runner.updater import (
+    UpdateChecker,
+    is_newer_version,
+    parse_semver,
+    parse_sha256_sums,
+    validate_update_url,
+    verify_file_sha256,
+)
 
 TARGET = {'username': 'alice', 'profileUrl': 'https://www.instagram.com/alice/'}
 
@@ -360,6 +368,70 @@ class ServerTests(unittest.TestCase):
         self.assertTrue(cleared['cleared'])
         with self.assertRaises(HTTPError) as caught:
             self.post('/api/schedule', {'enabled': False}, origin='https://evil.test')
+        self.assertEqual(caught.exception.code, 403)
+
+    def test_update_checker_security_manifests_sha256_and_endpoint(self):
+        self.assertTrue(is_newer_version('v0.5.0', '0.4.0'))
+        self.assertTrue(is_newer_version('0.5.0', '0.5.0-beta.1'))
+        self.assertFalse(is_newer_version('0.4.0', '0.4.0'))
+        self.assertIsNone(parse_semver('not-a-version'))
+
+        for bad_url in [
+            'http://github.com/DavidCevallos15/circulo-app/releases/latest',
+            'https://evil.example/update.json',
+            'https://user:pass@github.com/x',
+            'https://github.com:8443/x',
+        ]:
+            with self.assertRaises(ValueError):
+                validate_update_url(bad_url)
+
+        sample_file = Path(self.tmp.name) / 'Circulo-0.5.0-win64.zip'
+        sample_file.write_bytes(b'circulo-release-payload')
+        import hashlib
+        expected_hash = hashlib.sha256(b'circulo-release-payload').hexdigest()
+        sums_text = f'{expected_hash}  Circulo-0.5.0-win64.zip\n'
+        self.assertEqual(parse_sha256_sums(sums_text, 'Circulo-0.5.0-win64.zip'), expected_hash)
+        self.assertTrue(verify_file_sha256(sample_file, expected_hash))
+        self.assertFalse(verify_file_sha256(sample_file, '0' * 64))
+
+        calls = []
+        def fake_manifest_fetch(url, timeout=6, user_agent='Circulo'):
+            calls.append((url, user_agent))
+            return {
+                'version': '0.5.0',
+                'releaseUrl': 'https://github.com/DavidCevallos15/circulo-app/releases/tag/v0.5.0',
+                'downloadUrl': 'https://github.com/DavidCevallos15/circulo-app/releases/download/v0.5.0/Circulo-0.5.0-win64.zip',
+                'sha256': expected_hash,
+                'notes': 'Nuevos selectores de Instagram y soporte para paquetes de uso.',
+                'publishedAt': '2026-11-24T12:00:00Z',
+            }
+
+        checker = UpdateChecker(
+            current_version='0.4.0',
+            endpoint='https://www.davidcevallos.me/circulo/update.json',
+            fetcher=fake_manifest_fetch,
+        )
+        first = checker.check()
+        self.assertTrue(first['updateAvailable'])
+        self.assertEqual(first['latestVersion'], '0.5.0')
+        self.assertEqual(first['sha256'], expected_hash)
+        self.assertEqual(first['source'], 'manifest')
+        # La segunda llamada sin force usa caché sin volver a llamar a red.
+        second = checker.check()
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(second['latestVersion'], '0.5.0')
+
+        # El servidor acepta /api/update/check con origen/token válidos y rechaza orígenes externos.
+        self.server.updater.fetcher = fake_manifest_fetch
+        self.server.updater.endpoint = 'https://www.davidcevallos.me/circulo/update.json'
+        self.server.updater.current_version = '0.4.0'
+        resp = json.load(self.post('/api/update/check', {'force': True}))
+        self.assertTrue(resp['ok'])
+        self.assertTrue(resp['update']['updateAvailable'])
+        status = json.load(urlopen(self.url + '/api/status'))
+        self.assertEqual(status['update']['latestVersion'], '0.5.0')
+        with self.assertRaises(HTTPError) as caught:
+            self.post('/api/update/check', {'force': True}, origin='https://evil.test')
         self.assertEqual(caught.exception.code, 403)
 
 

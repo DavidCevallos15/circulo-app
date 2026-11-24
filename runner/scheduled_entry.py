@@ -10,3 +10,4 @@ from runner.cli import main  # noqa: E402
 
 if __name__ == '__main__':
     raise SystemExit(main(['--run-scheduled', *sys.argv[1:]]))
+

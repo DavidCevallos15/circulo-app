@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { deflateRawSync } from 'node:zlib';
 import { blankLists, mergeFiles, parseExport, parseExportSections, person } from '../web/parser';
 import { buildCsvReport, buildHtmlReport, buildReportSummary } from '../web/reports';
+import { detectPublicWebMode } from '../web/runtime';
 import { extractExportEntries } from '../web/zip';
 
 test('Instagram: title-only following and multiple followers files are merged by username', () => {
@@ -118,4 +119,13 @@ test('Direct ZIP reader extracts Instagram JSON lists in memory and skips unrela
   const merged = mergeFiles(blankLists(), sections);
   assert.equal(merged.following.get('alice')?.followsYou, true);
   assert.equal(merged.following.get('bob')?.followsYou, false);
+});
+
+test('Public web analyzer mode activates on public domains and ?mode=web override', () => {
+  assert.equal(detectPublicWebMode('127.0.0.1', ''), false);
+  assert.equal(detectPublicWebMode('localhost', ''), false);
+  assert.equal(detectPublicWebMode('127.0.0.1', '?mode=web'), true);
+  assert.equal(detectPublicWebMode('davidcevallos15.github.io', ''), true);
+  assert.equal(detectPublicWebMode('www.davidcevallos.me', ''), true);
+  assert.equal(detectPublicWebMode('davidcevallos15.github.io', '?mode=local'), false);
 });

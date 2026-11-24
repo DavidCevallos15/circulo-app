@@ -24,11 +24,11 @@ User confirmed Windows and the default criterion: only accounts that do not foll
 
 ## Capabilities and Constraints
 
-Start with Instagram. Keep modular adapters for TikTok and Facebook. Import, preview, selection, exclusions, targets.json export, persistent queue, dry run, daily limits, pause and stop on challenge. Real platform actions cannot be verified without the user's authenticated session. No session or export supplied. The working name Círculo is a provisional implementation choice, not approved branding.
+Start with Instagram. Keep modular adapters for TikTok and Facebook. Import, preview, selection, exclusions, targets.json export, persistent queue, dry run, daily limits, pause and stop on challenge. Instagram and TikTok adapters validated in a real authenticated session; Facebook remains beta. Distribution: free public web analyzer (GitHub Pages), free Windows portable build (GitHub Releases, linked from davidcevallos.me/circulo/descargar/), and Círculo Pro reservation ($9 USD) for support and upcoming features.
 
 ## Evidence on Hand
 
-Attached conversation with Claude. No existing source code, screenshots, exports or credentials.
+Source code in this repository, QA screenshots in .impeccable/review, demo video in presentacion/. Real exports and sessions stay on the owner's machine only.
 
 ## Product Principles
 

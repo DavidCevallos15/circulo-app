@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   Genera el paquete portable de Círculo para Windows. El usuario final no necesita Python, Node ni descargas.
 
@@ -117,6 +117,7 @@ try {
             --name Circulo `
             --paths $root `
             --add-data ("{0};dist" -f (Join-Path $root 'dist')) `
+            --add-data ("{0};." -f (Join-Path $root 'package.json')) `
             --collect-all playwright `
             --distpath (Join-Path $pyiRoot 'dist') `
             --workpath (Join-Path $pyiRoot 'work') `

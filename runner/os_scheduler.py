@@ -160,3 +160,4 @@ def remove_windows_task(runner=_default_run):
         return False
     result = runner(['schtasks', '/Delete', '/TN', TASK_NAME, '/F'])
     return result.returncode == 0
+
